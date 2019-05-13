@@ -1,5 +1,5 @@
-#ifndef BAS_MESSAGE_HPP
-#define BAS_MESSAGE_HPP
+#ifndef MESSAGE_H
+#define MESSAGE_H
 
 #include <stdint.h>
 
@@ -28,4 +28,4 @@ struct Message
 }
 #endif
 
-#endif // BAS_MESSAGE_HPP
+#endif // MESSAGE_H
