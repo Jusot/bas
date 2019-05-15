@@ -7,8 +7,8 @@
 extern "C" {
 #endif
 
-#define IS_ELECT  (TYPE) ((TYPE) == ELECT)
-#define IS_ALIVE  (TYPE) ((TYPE) == ALIVE)
+#define IS_ELECT(TYPE) ((TYPE) == ELECT)
+#define IS_ALIVE(TYPE) ((TYPE) == ALIVE)
 #define IS_VICTORY(TYPE) ((TYPE) == VICTORY)
 
 enum MessageType

@@ -3,7 +3,7 @@
 
 namespace bas
 {
-    #include "message.h"
+#include "message.h"
 } // namespace bas
 
 #endif // BAS_MESSAGE_HPP
