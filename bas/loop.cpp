@@ -49,7 +49,15 @@ void Loop::run()
                 if (id != id_)
                 {
                     auto msg = ipc::sendto(id, { id_, ELECT });
-                
+                    if (msg.id == id_)
+                    {
+                        // no reply
+                    }
+                    else
+                    {
+                        // get reply
+                    }
+                    
                 }
             }
         }
