@@ -34,3 +34,7 @@
 # Folder
 .vs/
 .vscode/
+
+# Files
+*.log
+main
