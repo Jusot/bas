@@ -57,8 +57,8 @@ void Loop::run()
                 leader_cond_.wait(lock, [this] { return leader_ != id_; });
             }
             log("leader has been changed");
-            leader_ = -1;
-            start_elect();
+            if (leader_ == -1)
+                start_elect();
         }
         else
         {
@@ -73,6 +73,11 @@ void Loop::run()
             else
             {
                 // timeout
+                if (leader_ == -1)
+                {
+                    leader_ = id_;
+                    continue;
+                }
                 if (!check_leader_alive())
                 {
                     log("leader is crashed, restart elect");
@@ -81,7 +86,7 @@ void Loop::run()
                 }
                 else
                 {
-                    log("leader is ok");
+                    // log("leader is ok");
                 }
             }
         }
