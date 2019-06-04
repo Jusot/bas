@@ -120,13 +120,11 @@ void Loop::recv()
 
     int client_sockfd;
     struct sockaddr_un client_addr;
-    client_addr.sun_family = AF_UNIX;
     socklen_t len = sizeof client_addr;
 
     while (true)
     {
         Message msg;
-        log("ACCEPT");
         client_sockfd = accept(sockfd_, (sockaddr *)&client_addr, &len);
         auto n = read(client_sockfd, &msg, sizeof msg);
         if (n == 1)
@@ -136,6 +134,7 @@ void Loop::recv()
         else if (IS_VICTORY(msg.type))
         {
             leader_ = msg.id;
+            log("leader id is " + to_string(msg.id));
             log(RECV, msg.id, msg.type);
             // std::cout << "recv   id: " << msg.id << " type: VICTORY" << std::endl;
             leader_cond_.notify_all();
@@ -143,11 +142,12 @@ void Loop::recv()
         else if (IS_ELECT(msg.type) && msg.id < id_)
         {
             log(RECV, msg.id, msg.type);
+            auto id = msg.id;
             msg = { id_, ALIVE };
             if (leader_ == id_)
                 leader_cond_.notify_all();
             write(client_sockfd, &msg, sizeof msg);
-            log(SEND, msg.id, ALIVE);
+            log(SEND, id, ALIVE);
         }
     }
 }
@@ -162,6 +162,7 @@ void Loop::start_recv()
 
 void Loop::broadcast_victory() const
 {
+    log("leader is this machine");
     for (auto id : ids)
     {
         if (id != id_)

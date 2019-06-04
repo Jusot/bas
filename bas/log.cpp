@@ -9,6 +9,8 @@ void log(SendOrRecv sr, int id, int type)
 {
     if (sr == SEND)
         std::cout << "send\t";
+    else
+        std::cout << "recv\t";
     std::cout << "id: " << id << " type: ";
     switch (type)
     {

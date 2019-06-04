@@ -22,17 +22,10 @@ Message ipc::sendto(int id, Message msg, bool read_or_not)
     addr.sun_family = AF_UNIX;
     strcpy(addr.sun_path, un_path.c_str());
     if (connect(sockfd, (sockaddr *)&addr, sizeof(addr)) == -1)
-    {
-        std::string tmp = strerror(errno);
-        // "CONN err";
-        tmp.append(to_string(id));
-        log(tmp);
         goto end;
-    }
-    log(SEND, msg.id, msg.type);
     if (write(sockfd, &msg, sizeof msg) == -1)
         goto end;
-    log(SEND, msg.id, msg.type);
+    log(SEND, id, msg.type);
     if (read_or_not)
     {
         if (read(sockfd, &msg, sizeof msg) != -1)
@@ -40,10 +33,8 @@ Message ipc::sendto(int id, Message msg, bool read_or_not)
         else
             goto end;
     }
-    return msg;
 
     end:
-        log("ERR");
         close(sockfd);
         return msg;
 }
