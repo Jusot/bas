@@ -2,15 +2,19 @@
 #include <thread>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
 
 #include "message.hpp"
 #include "loop.hpp"
 #include "ipc.hpp"
+#include "log.hpp"
 
 using namespace std;
 using namespace bas;
+using namespace std::chrono_literals;
 
 vector<int> ids =
 {
@@ -22,29 +26,39 @@ Loop::Loop(int id)
     sockfd_(socket(AF_UNIX, SOCK_STREAM, 0)),
     leader_(-1)
 {
+    assert(sockfd_ != -1);
     auto un_path = UN_PRE + to_string(id);
     addr_.sun_family = AF_UNIX;
     strcpy(addr_.sun_path, un_path.c_str());
 
-    bind(sockfd_, (sockaddr *)&addr_, sizeof addr_);
+    assert(bind(sockfd_, (sockaddr *)&addr_, sizeof addr_) != -1);
 }
 
 void Loop::run()
 {
-    this_thread::sleep_for(10s);
+    this_thread::sleep_for(2s);
     start_elect();
     while (true)
     {
-        this_thread::sleep_for(3s);
-        if (!check_leader_alive())
+        if (leader_ == id_)
         {
-            start_elect();
+            std::unique_lock<std::mutex> lock{mutex_};
+            leader_cond_.wait(lock);
+        }
+        else
+        {
+            this_thread::sleep_for(3s);
+            if (!check_leader_alive())
+            {
+                start_elect();
+            }
         }
     }
 }
 
 void Loop::start_elect()
 {
+    log("start elect");
     leader_ = -1;
     if (id_ == ids.back())
     {
@@ -73,11 +87,12 @@ void Loop::start_elect()
         }
         if (!get_reply)
         {
+            leader_ = id_;
             broadcast_victory();
         }
         else
         {
-            std::unique_lock<std::mutex> lock(mutex_);
+            std::unique_lock<std::mutex> lock{mutex_};
             if (leader_cond_.wait_for(lock, 3s, [&] () { return leader_ != -1;}))
             {
                 // ok
@@ -89,7 +104,6 @@ void Loop::start_elect()
             }
         }
     }
-    
 }
 
 void Loop::recv()
@@ -112,12 +126,18 @@ void Loop::recv()
         else if (IS_VICTORY(msg.type))
         {
             leader_ = msg.id;
+            log(RECV, msg.id, msg.type);
+            // std::cout << "recv   id: " << msg.id << " type: VICTORY" << std::endl;
             leader_cond_.notify_all();
         }
         else if (IS_ELECT(msg.type) && msg.id < id_)
         {
+            log(RECV, msg.id, msg.type);
             msg = { id_, ALIVE };
+            if (leader_ == id_)
+                leader_cond_.notify_all();
             write(client_sockfd, &msg, sizeof msg);
+            log(SEND, msg.id, ALIVE);
         }
     }
 }
