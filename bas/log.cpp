@@ -1,45 +1,53 @@
 #include "log.hpp"
 
-#include <cassert>
 #include <iostream>
+#include <cassert>
+#include <sstream>
+#include <unistd.h>
 
 namespace bas
 {
 void log(SendOrRecv sr, int id, int type)
 {
+    std::ostringstream sout;
     if (sr == SEND)
-        std::cout << "send\t";
+        sout << "send\t";
     else
-        std::cout << "recv\t";
-    std::cout << "id: " << id << " type: ";
+        sout << "recv\t";
+    sout << "id: " << id << " type: ";
     switch (type)
     {
     case ELECT:
-        std::cout << "ELECT" << std::endl;
+        sout << "ELECT" << std::endl;
         break;
     
     case ALIVE:
-        std::cout << "ALIVE" << std::endl;
+        sout << "ALIVE" << std::endl;
         break;
 
     case VICTORY:
-        std::cout << "VICTORY" << std::endl;
+        sout << "VICTORY" << std::endl;
         break;
 
     default:
-        std::cout << "UNKNOWN TYPE" << std::endl;
+        sout << "UNKNOWN TYPE" << std::endl;
         assert(0);
     }
+    ::write(STDOUT_FILENO, sout.str().c_str(), sout.str().size());
 }
 
 void log(const char* str)
 {
-    std::cout << str << std::endl;
+    std::ostringstream sout;
+    sout << str << std::endl;
+    ::write(STDOUT_FILENO, sout.str().c_str(), sout.str().size());
 }
 
 void log(const std::string& str)
 {
-    std::cout << str << std::endl;
+    std::ostringstream sout;
+    sout << str << std::endl;
+    ::write(STDOUT_FILENO, sout.str().c_str(), sout.str().size());
 }
 
 } // namespace bas

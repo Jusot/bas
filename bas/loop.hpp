@@ -25,7 +25,7 @@ class Loop
 
     std::condition_variable leader_cond_;
     std::mutex leader_mutex_;
-    std::condition_variable elect_cond_;
+    // std::condition_variable elect_cond_;
     std::mutex elect_mutex_;
     std::atomic<bool> elect_;
     // bool in_elect_;
