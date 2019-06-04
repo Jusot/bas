@@ -2,6 +2,8 @@
 #define BAS_LOOP_HPP
 
 #include <sys/un.h>
+#include <cstdint>
+#include <condition_variable>
 
 namespace bas
 {
@@ -16,11 +18,16 @@ class Loop
 
   private:
     void recv();
+    void start_elect();
+    void broadcast_victory() const;
 
-    int id_;
+    std::condition_variable leader_cond_;
+    std::mutex mutex_;
+
+    int16_t id_;
     int sockfd_;
     sockaddr_un addr_;
-    int leader_;
+    int16_t leader_;
 };
 }
 

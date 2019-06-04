@@ -6,7 +6,7 @@
 
 namespace bas
 {
-inline std::string UN_PRE = "/tmp/bas";
+inline constexpr char UN_PRE[] = "/tmp/bas";
 namespace ipc
 {
 Message sendto(int id, Message msg, bool read_or_not = true);

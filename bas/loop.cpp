@@ -1,3 +1,4 @@
+#include <cassert>
 #include <thread>
 #include <string>
 #include <vector>
@@ -30,38 +31,63 @@ Loop::Loop(int id)
 
 void Loop::run()
 {
+    start_elect();
     while (true)
     {
-        if (id_ == ids.back())
+        this_thread::sleep_for(3s);
+        // check whether leader hasn't been crashed
+        //if crashed
+        // start_elect();
+    }
+}
+
+void Loop::start_elect()
+{
+    leader_ = -1;
+    if (id_ == ids.back())
+    {
+        leader_ = id_;
+        broadcast_victory();
+    }
+    else
+    {
+        bool get_reply = false;
+        for (auto id : ids)
         {
-            for (auto id : ids)
+            if (id > id_)
             {
-                if (id != id_)
+                auto msg = ipc::sendto(id, { id_, ELECT });
+                if (msg.id == id_)
                 {
-                    ipc::sendto(id, { id_, VICTORY }, false);
+                    // no reply
+                }
+                else
+                {
+                    assert(msg.id > id_ && msg.type == ALIVE);
+                    get_reply = true;
+                    break;
                 }
             }
+        }
+        if (!get_reply)
+        {
+            broadcast_victory();
         }
         else
         {
-            for (auto id : ids)
+            std::unique_lock<std::mutex> lock(mutex_);
+            if (leader_cond_.wait_for(lock, 3s, [&] () { return leader_ != -1;}))
             {
-                if (id != id_)
-                {
-                    auto msg = ipc::sendto(id, { id_, ELECT });
-                    if (msg.id == id_)
-                    {
-                        // no reply
-                    }
-                    else
-                    {
-                        // get reply
-                    }
-                    
-                }
+                // ok
+            }
+            else
+            {
+                // timeout
+                start_elect();
             }
         }
     }
+    
 }
 
 void Loop::recv()
@@ -80,16 +106,13 @@ void Loop::recv()
         if (IS_VICTORY(msg.type))
         {
             leader_ = msg.id;
-        }
-        else if (IS_ALIVE(msg.type) && msg.id > id_)
-        {
-            // wait for victory
-            // if come, leader_ = msg.id
+            leader_cond_.notify_one();
         }
         else if (IS_ELECT(msg.type) && msg.id < id_)
         {
             msg = { id_, ALIVE };
             write(client_sockfd, &msg, sizeof msg);
+            start_elect();
         }
     }
 }
@@ -100,4 +123,15 @@ void Loop::start_recv()
         this->recv();
     });
     t.detach();
+}
+
+void Loop::broadcast_victory() const
+{
+    for (auto id : ids)
+    {
+        if (id != id_)
+        {
+            ipc::sendto(id, { id_, VICTORY }, false);
+        }
+    }
 }
