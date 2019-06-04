@@ -1,4 +1,4 @@
-main:
+main: ./bas/*.cpp
 	g++ ./bas/*.cpp -std=c++14 -o main -pthread -g
 
 clean:
