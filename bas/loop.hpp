@@ -20,6 +20,7 @@ class Loop
     void recv();
     void start_elect();
     void broadcast_victory() const;
+    bool check_leader_alive() const;
 
     std::condition_variable leader_cond_;
     std::mutex mutex_;

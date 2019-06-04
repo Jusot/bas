@@ -31,13 +31,15 @@ Loop::Loop(int id)
 
 void Loop::run()
 {
+    this_thread::sleep_for(10s);
     start_elect();
     while (true)
     {
         this_thread::sleep_for(3s);
-        // check whether leader hasn't been crashed
-        //if crashed
-        // start_elect();
+        if (!check_leader_alive())
+        {
+            start_elect();
+        }
     }
 }
 
@@ -102,17 +104,20 @@ void Loop::recv()
     {
         Message msg;
         client_sockfd = accept(sockfd_, (sockaddr *)&client_addr, &len);
-        read(client_sockfd, &msg, sizeof msg);
-        if (IS_VICTORY(msg.type))
+        auto n = read(client_sockfd, &msg, sizeof msg);
+        if (n == 1)
+        {
+            write(client_sockfd, " ", 1);
+        }
+        else if (IS_VICTORY(msg.type))
         {
             leader_ = msg.id;
-            leader_cond_.notify_one();
+            leader_cond_.notify_all();
         }
         else if (IS_ELECT(msg.type) && msg.id < id_)
         {
             msg = { id_, ALIVE };
             write(client_sockfd, &msg, sizeof msg);
-            start_elect();
         }
     }
 }
@@ -134,4 +139,11 @@ void Loop::broadcast_victory() const
             ipc::sendto(id, { id_, VICTORY }, false);
         }
     }
+}
+
+bool Loop::check_leader_alive() const
+{
+    char buf = ' ';
+    assert(leader_ != -1);
+    return ipc::sendto(leader_, &buf, 1) != -1;
 }
