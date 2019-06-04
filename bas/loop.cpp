@@ -22,7 +22,9 @@ vector<int> ids =
 };
 
 Loop::Loop(int id)
-  : id_(id),
+  : elect_(false),
+    id_(id),
+    // in_elect_(false),
     sockfd_(socket(AF_UNIX, SOCK_STREAM, 0)),
     leader_(-1)
 {
@@ -31,7 +33,7 @@ Loop::Loop(int id)
     addr_.sun_family = AF_UNIX;
     strcpy(addr_.sun_path, un_path.c_str());
     unlink(addr_.sun_path);
-    auto size = offsetof(sockaddr_un, sun_path) + strlen(addr_.sun_path);
+    // auto size = offsetof(sockaddr_un, sun_path) + strlen(addr_.sun_path);
     if (bind(sockfd_, (sockaddr *)&addr_, sizeof addr_) == -1)
     {
         auto p = strerror(errno);
@@ -50,15 +52,37 @@ void Loop::run()
     {
         if (leader_ == id_)
         {
-            std::unique_lock<std::mutex> lock{mutex_};
-            leader_cond_.wait(lock);
+            {
+                std::unique_lock<std::mutex> lock{leader_mutex_};
+                leader_cond_.wait(lock, [this] { return leader_ != id_; });
+            }
+            log("leader has been changed");
+            leader_ = -1;
+            start_elect();
         }
         else
         {
             this_thread::sleep_for(3s);
-            if (!check_leader_alive())
+            if (elect_)
             {
+                log("recv smaller id, restart elect");
+                leader_ = -1;
                 start_elect();
+                elect_ = false;
+            }
+            else
+            {
+                // timeout
+                if (!check_leader_alive())
+                {
+                    log("leader is crashed, restart elect");
+                    leader_ = -1;
+                    start_elect();
+                }
+                else
+                {
+                    log("leader is ok");
+                }
             }
         }
     }
@@ -67,6 +91,11 @@ void Loop::run()
 void Loop::start_elect()
 {
     log("start elect");
+    if (leader_ != -1)
+    {
+        log("leader:" + to_string(leader_));
+        return;
+    }
     leader_ = -1;
     if (id_ == ids.back())
     {
@@ -88,6 +117,7 @@ void Loop::start_elect()
                 else
                 {
                     assert(msg.id > id_ && msg.type == ALIVE);
+                    log("get msg of larger id");
                     get_reply = true;
                     break;
                 }
@@ -100,18 +130,23 @@ void Loop::start_elect()
         }
         else
         {
-            std::unique_lock<std::mutex> lock{mutex_};
+            log("recv msg id larger than self, start waiting for 3s");
+            std::unique_lock<std::mutex> lock{leader_mutex_};
             if (leader_cond_.wait_for(lock, 3s, [&] () { return leader_ != -1;}))
             {
+                log("leader has been found");
                 // ok
             }
             else
             {
+                log("timeout");
                 // timeout
+                lock.unlock();
                 start_elect();
             }
         }
     }
+    log("end elect");
 }
 
 void Loop::recv()
@@ -134,20 +169,33 @@ void Loop::recv()
         else if (IS_VICTORY(msg.type))
         {
             leader_ = msg.id;
-            log("leader id is " + to_string(msg.id));
             log(RECV, msg.id, msg.type);
+            log("leader id is " + to_string(msg.id));
             // std::cout << "recv   id: " << msg.id << " type: VICTORY" << std::endl;
-            leader_cond_.notify_all();
+            leader_cond_.notify_one();
         }
         else if (IS_ELECT(msg.type) && msg.id < id_)
         {
             log(RECV, msg.id, msg.type);
             auto id = msg.id;
             msg = { id_, ALIVE };
-            if (leader_ == id_)
-                leader_cond_.notify_all();
             write(client_sockfd, &msg, sizeof msg);
             log(SEND, id, ALIVE);
+            if (leader_ == id_)
+            {
+                leader_ = -1;
+                log("notify to restart elect");
+                leader_cond_.notify_one();
+            }
+            else
+            {
+                if (leader_ != -1)
+                {
+                    log("restart elect");
+                    elect_ = true;
+                    // elect_cond_.notify_one();
+                }
+            }
         }
     }
 }
@@ -162,7 +210,7 @@ void Loop::start_recv()
 
 void Loop::broadcast_victory() const
 {
-    log("leader is this machine");
+    log("leader is self");
     for (auto id : ids)
     {
         if (id != id_)
