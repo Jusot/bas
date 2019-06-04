@@ -30,8 +30,16 @@ Loop::Loop(int id)
     auto un_path = UN_PRE + to_string(id);
     addr_.sun_family = AF_UNIX;
     strcpy(addr_.sun_path, un_path.c_str());
-
-    assert(bind(sockfd_, (sockaddr *)&addr_, sizeof addr_) != -1);
+    unlink(addr_.sun_path);
+    auto size = offsetof(sockaddr_un, sun_path) + strlen(addr_.sun_path);
+    if (bind(sockfd_, (sockaddr *)&addr_, sizeof addr_) == -1)
+    {
+        auto p = strerror(errno);
+        log(p);
+        assert(0);
+    }
+    log("Ctor ok");
+    start_recv();
 }
 
 void Loop::run()
@@ -112,11 +120,13 @@ void Loop::recv()
 
     int client_sockfd;
     struct sockaddr_un client_addr;
+    client_addr.sun_family = AF_UNIX;
     socklen_t len = sizeof client_addr;
 
     while (true)
     {
         Message msg;
+        log("ACCEPT");
         client_sockfd = accept(sockfd_, (sockaddr *)&client_addr, &len);
         auto n = read(client_sockfd, &msg, sizeof msg);
         if (n == 1)
@@ -144,7 +154,7 @@ void Loop::recv()
 
 void Loop::start_recv()
 {
-    thread t([this]{
+    thread t([this] {
         this->recv();
     });
     t.detach();
