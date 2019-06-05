@@ -1,2 +1,2 @@
-# BAS
-Bully Algorithm Simulation
+# bas
+bully algorithm simulation
