@@ -1,2 +1,2 @@
-# bas
-Bully Algorithm Simulate
+# BAS
+Bully Algorithm Simulation
